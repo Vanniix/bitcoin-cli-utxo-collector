@@ -18,11 +18,11 @@ const prompt = promptGenerator()
 const exec = promisify(execCallback)
 const BIP_32 = BIP32Factory(ecc)
 
-const DESTINATION_ADDRESS = 'tb1p85vpt86t5dwnrjx6kd8h652c9nfpz58ttcu03635r4cjzemq3pxqfteexs'
+const DESTINATION_ADDRESS = 'bc1pt34pjkjc53hldy9uw8wtj40tcnvn9gq760pvdphkpa069dn7w0sqmhr79u'
 const ADDRESSES_TO_SCAN = 10000
 const MNEMONIC = ''
 const FEES_SATPOINT = 'f3304ac7928cb86c7c08eb1791db3bb5f068cb70e27fadfc8518618e999fde23:945'
-const FEE_RATE = 2.5
+const FEE_RATE = 50
 
 const NETWORK = networks.bitcoin
 const DESC_REGEX = /^tr\(\[[^\/]*(\/\d\/\d+)\][^\)]*\)#.*$/

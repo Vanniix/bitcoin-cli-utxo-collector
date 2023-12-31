@@ -1,0 +1,18 @@
+{
+  "name": "bitcoin-cli-utxo-consolidator",
+  "version": "1.0.0",
+  "description": "",
+  "main": "main.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "bip32": "^4.0.0",
+    "bip39": "^3.1.0",
+    "bitcoinjs-lib": "^6.1.5",
+    "prompt-sync": "^4.2.0",
+    "tiny-secp256k1": "^2.2.3"
+  }
+}

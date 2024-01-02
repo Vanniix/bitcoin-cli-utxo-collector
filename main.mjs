@@ -18,15 +18,18 @@ const prompt = promptGenerator()
 const exec = promisify(execCallback)
 const BIP_32 = BIP32Factory(ecc)
 
-const DESTINATION_ADDRESS = 'bc1pt34pjkjc53hldy9uw8wtj40tcnvn9gq760pvdphkpa069dn7w0sqmhr79u'
+const DESTINATION_ADDRESS = 'tb1plrcc4ft33zy5f28casshc4w43g2mgjd0h32v5rgtj83hqzy6aenqa59c9h'
 const ADDRESSES_TO_SCAN = 10000
 const MNEMONIC = ''
-const FEES_SATPOINT = 'f3304ac7928cb86c7c08eb1791db3bb5f068cb70e27fadfc8518618e999fde23:945'
-const FEE_RATE = 50
+const FEES_SATPOINT = 'a95a4987cf2e35ae3bfcc529ee7a1937c9ab8b055e37e3c0d4ba76556298c029:0'
+const FEES_DESTINATION_ADDRESS = ''
+const FEE_RATE = 1
 
 const NETWORK = networks.bitcoin
-const DESC_REGEX = /^tr\(\[[^\/]*(\/\d\/\d+)\][^\)]*\)#.*$/
-const PARENT_DESC_REGEX = /^(tr\([^\/]*)\/\d\/\*\)#.*$/
+const DESC_REGEX = /^tr\(\[([^\]]*)\][^\)]*\)#.*$/
+const PARENT_DESC_REGEX = /^(tr\((?:\[[^\]]*\])?[^\/]*)\/\d\/\*\)#.*$/
+
+const WALLET = BIP_32.fromSeed(bip39.mnemonicToSeedSync(MNEMONIC))
 
 async function runBTCCommand(...args) {
   const response = await exec('bitcoin-cli ' + args.join(' '), {maxBuffer: 8 * 1024 * 1024})
@@ -60,8 +63,7 @@ function loadKey(hdNode, descriptor) {
 }
 
 function createTransaction(utxos, limit) {
-  const seed = bip39.mnemonicToSeedSync(MNEMONIC)
-  const wallet = BIP_32.fromSeed(seed)
+  
 
   const [feesTxid, feesOutput] = FEES_SATPOINT.split(':')
   const feesUtxo = utxos.find(utxo => utxo.txid === feesTxid && utxo.vout === parseInt(feesOutput))
@@ -79,11 +81,12 @@ function createTransaction(utxos, limit) {
       console.log(`Failed to parse descriptor of ${utxo.desc}`)
       process.exit()
     }
-    utxo.addressDescriptor = `0'${match[1]}`
+    const segments = match[1].split('/')
+    utxo.addressDescriptor = `0'/${segments[segments.length - 2]}/${segments[segments.length - 1]}`
 
     let key = keyMap.get(utxo.addressDescriptor)
     if (key == null) {
-      key = loadKey(wallet, utxo.addressDescriptor)
+      key = loadKey(WALLET, utxo.addressDescriptor)
       keyMap.set(utxo.addressDescriptor, key)
     }
 
@@ -94,7 +97,7 @@ function createTransaction(utxos, limit) {
     }
   })
 
-  let utxosToMove = utxos.filter(utxo => paymentMap.get(utxo.addressDescriptor).address !== DESTINATION_ADDRESS && utxo !== feesUtxo)
+  let utxosToMove = utxos.filter(utxo => utxo !== feesUtxo)
   if (limit != null && limit < utxosToMove.length) {
     utxosToMove = utxosToMove.slice(0, limit)
   }
@@ -112,6 +115,7 @@ function createTransaction(utxos, limit) {
     address: DESTINATION_ADDRESS,
     value: utxo.amount
   }))
+  outputs[outputs.length - 1].address = FEES_DESTINATION_ADDRESS
 
   const createRawTransaction = () => {
     const psbt = new Psbt({ network: NETWORK }).addInputs(inputs).addOutputs(outputs)
@@ -132,15 +136,16 @@ function createTransaction(utxos, limit) {
   return [createRawTransaction(), utxosToMove.length-1]
 }
 
+console.log("Scanning addresses for UTXO's. This may take a while...")
 const unspent = await runBTCCommand('listunspent')
-const blacklistedUnspent = unspent.find(utxo => utxo.address === DESTINATION_ADDRESS)
-
-if (blacklistedUnspent == null) {
-  console.log(`Unable to find address ${DESTINATION_ADDRESS}. Is the correct wallet loaded into bitcoin-cli?`)
-  process.exit()
+const createAddress = (a, b) => payments.p2tr({ pubkey: toXOnly(loadKey(WALLET, `0'/${a}/${b}`).publicKey), network: NETWORK }).address
+let exampleUnspent;
+for(let i = 0; exampleUnspent == null; i++) {
+  const address = createAddress(i % 2, Math.floor(i/2))
+  exampleUnspent = unspent.find(utxo => utxo.address === address)
 }
 
-const exampleDesc = blacklistedUnspent.parent_descs[0]
+const exampleDesc = exampleUnspent.parent_descs[0]
 const match = exampleDesc.match(PARENT_DESC_REGEX)
 if (match == null || match[1] == null) {
   console.log(`Failed to parse parent descriptor of ${exampleDesc}`)
@@ -149,7 +154,6 @@ if (match == null || match[1] == null) {
 const descPrefix = match[1]
 
 const descriptor = (account) => `${descPrefix}/${account}/*)`
-console.log("Scanning addresses for UTXO's. This may take a while...")
 const [utxos, total] = await getUtxos(descriptor(0), descriptor(1))
 
 utxos.forEach(utxo => { utxo.amount = Math.round(utxo.amount * 100000000)})

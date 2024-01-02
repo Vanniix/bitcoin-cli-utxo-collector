@@ -18,7 +18,7 @@ const prompt = promptGenerator()
 const exec = promisify(execCallback)
 const BIP_32 = BIP32Factory(ecc)
 
-const DESTINATION_ADDRESS = 'tb1plrcc4ft33zy5f28casshc4w43g2mgjd0h32v5rgtj83hqzy6aenqa59c9h'
+const DESTINATION_ADDRESS = ''
 const ADDRESSES_TO_SCAN = 10000
 const MNEMONIC = ''
 const FEES_SATPOINT = 'a95a4987cf2e35ae3bfcc529ee7a1937c9ab8b055e37e3c0d4ba76556298c029:0'
@@ -38,10 +38,10 @@ async function runBTCCommand(...args) {
 
 async function getUtxos(...descriptors) {
   const scanOutset = (descriptor) => {
-    return runBTCCommand('scantxoutset', 'start', `'${JSON.stringify([{
-      "desc": descriptor,
-      "range": ADDRESSES_TO_SCAN
-    }])}'`)
+    return runBTCCommand('scantxoutset', 'start', `"${JSON.stringify([{
+      desc: descriptor,
+      range: ADDRESSES_TO_SCAN
+    }]).replaceAll('"', '\\"')}"`)
   }
   
   const utxos = []
@@ -63,8 +63,6 @@ function loadKey(hdNode, descriptor) {
 }
 
 function createTransaction(utxos, limit) {
-  
-
   const [feesTxid, feesOutput] = FEES_SATPOINT.split(':')
   const feesUtxo = utxos.find(utxo => utxo.txid === feesTxid && utxo.vout === parseInt(feesOutput))
 
